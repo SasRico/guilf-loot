@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guild Loot Prices – Throne & Liberty</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:#c9a84c;--gold-light:#f0d080;--gold-dim:#7a6030;
+    --bg:#0d0e10;--bg-card:#13151a;--bg-card2:#1a1d24;
+    --border:rgba(201,168,76,0.22);--border-bright:rgba(201,168,76,0.55);
+    --text:#e8e0d0;--text-dim:#7a7060;
+    --green:#4caf7a;--amber:#e0a030;--blue:#4a9ab0;--red:#e05555;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Lato',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;
+    background-image:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(201,168,76,0.05) 0%,transparent 70%);}
+  header{text-align:center;padding:2.5rem 1rem 1.8rem;}
+  .hline{width:100px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:0 auto 1rem;}
+  header h1{font-family:'Cinzel',serif;font-size:clamp(1.4rem,3.5vw,2.4rem);font-weight:700;color:var(--gold-light);
+    letter-spacing:.04em;text-shadow:0 0 30px rgba(201,168,76,.25);}
+  header p{color:var(--text-dim);font-size:.82rem;margin-top:.4rem;letter-spacing:.08em;text-transform:uppercase;}
+  .last-update{font-size:.72rem;color:var(--gold-dim);margin-top:.3rem;}
+  .api-status{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;margin-top:.4rem;}
+  .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .dot.loading{background:var(--amber);animation:pulse 1s infinite;}
+  .dot.ok{background:var(--green);}
+  .dot.err{background:var(--red);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .controls{max-width:1100px;margin:0 auto 1.2rem;padding:0 1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .search-wrap{flex:1;min-width:180px;position:relative;}
+  .search-wrap input{width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;
+    padding:9px 12px 9px 36px;color:var(--text);font-family:'Lato',sans-serif;font-size:.88rem;outline:none;}
+  .search-wrap input:focus{border-color:var(--gold-dim);}
+  .search-wrap input::placeholder{color:var(--text-dim);}
+  .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:13px;}
+  .filter-btn{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 16px;
+    color:var(--text-dim);font-family:'Lato',sans-serif;font-size:.82rem;cursor:pointer;transition:all .18s;letter-spacing:.03em;}
+  .filter-btn.active{background:rgba(201,168,76,.1);border-color:var(--gold-dim);color:var(--gold-light);}
+  .filter-btn:hover{border-color:var(--gold-dim);color:var(--text);}
+
+  .grid{max-width:1100px;margin:0 auto;padding:0 1rem 3rem;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
+
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .2s;}
+  .card:hover{border-color:var(--border-bright);transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.5);}
+  .card.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.3);}
+  .type-bar{height:3px;width:100%;}
+  .type-archboss .type-bar{background:linear-gradient(90deg,#b03030,#d06020);}
+  .type-worldboss .type-bar{background:linear-gradient(90deg,#6a5020,var(--gold));}
+  .type-guildboss .type-bar{background:linear-gradient(90deg,#1a4a60,#2a80a0);}
+  .card-img-wrap{width:100%;aspect-ratio:1;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .card-img-wrap img{width:68%;height:68%;object-fit:contain;transition:transform .3s;}
+  .card:hover .card-img-wrap img{transform:scale(1.1);}
+  .img-fb{font-size:2.5rem;opacity:.25;}
+  .card-body{padding:10px 12px;}
+  .boss-name{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold-light);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .weapon-name{font-size:.7rem;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .type-badge{display:inline-block;font-size:.6rem;padding:2px 6px;border-radius:3px;margin-top:5px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;}
+  .type-archboss .type-badge{background:rgba(180,60,60,.2);color:#d08080;}
+  .type-worldboss .type-badge{background:rgba(201,168,76,.12);color:var(--gold);}
+  .type-guildboss .type-badge{background:rgba(42,128,160,.15);color:#4a9ab0;}
+  .price-section{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);}
+  .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+  .price-label{font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;}
+  .price-value{font-size:.85rem;font-weight:700;}
+  .price-hdv{color:var(--text);}
+  .price-guild{color:var(--green);}
+  .disc-pill{font-size:.6rem;background:rgba(76,175,122,.15);color:var(--green);padding:1px 6px;border-radius:20px;font-weight:700;margin-top:3px;display:inline-block;}
+  .live-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;color:var(--green);opacity:.75;margin-top:3px;}
+  .live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+  .loading-price{color:var(--text-dim);font-size:.75rem;font-style:italic;}
+
+  /* MODAL */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;
+    align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(5px);}
+  .overlay.open{display:flex;}
+  .modal{background:var(--bg-card);border:1px solid var(--border-bright);border-radius:14px;
+    width:100%;max-width:460px;overflow:hidden;position:relative;animation:su .18s ease;}
+  @keyframes su{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+  .close-btn{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.07);border:none;
+    border-radius:50%;width:30px;height:30px;cursor:pointer;color:var(--text-dim);font-size:15px;
+    display:flex;align-items:center;justify-content:center;}
+  .close-btn:hover{background:rgba(255,255,255,.14);color:var(--text);}
+  .modal-top{padding:1.3rem;display:flex;gap:1rem;align-items:center;border-bottom:1px solid var(--border);}
+  .modal-img{width:86px;height:86px;background:var(--bg-card2);border-radius:10px;display:flex;
+    align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:1px solid var(--border);}
+  .modal-img img{width:78%;height:78%;object-fit:contain;}
+  .modal-boss{font-family:'Cinzel',serif;font-size:1.1rem;color:var(--gold-light);font-weight:700;}
+  .modal-weapon{font-size:.82rem;color:var(--text-dim);margin-top:4px;line-height:1.4;}
+  .live-tag{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;color:var(--green);
+    background:rgba(76,175,122,.12);padding:2px 8px;border-radius:20px;margin-top:6px;font-weight:700;}
+  .modal-body{padding:1.2rem;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+  .stat{background:var(--bg-card2);border-radius:8px;padding:11px 8px;text-align:center;}
+  .stat-lbl{font-size:.67rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+  .stat-val{font-size:1.2rem;font-weight:700;line-height:1;}
+  .c-gold{color:var(--gold-light);} .c-green{color:var(--green);} .c-amber{color:var(--amber);}
+  .stat-unit{font-size:.6rem;color:var(--text-dim);margin-top:2px;}
+  .stat-sub{font-size:.6rem;color:var(--text-dim);margin-top:3px;}
+  .disc-box{background:rgba(76,175,122,.1);border:1px solid rgba(76,175,122,.22);border-radius:8px;
+    padding:11px 13px;display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .disc-strong{color:var(--green);font-size:.95rem;font-weight:700;}
+  .disc-sub{font-size:.75rem;color:var(--text-dim);margin-top:2px;}
+  .tldb-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 16px;
+    background:rgba(42,128,160,.1);border:1px solid rgba(42,128,160,.35);border-radius:8px;
+    color:var(--blue);font-family:'Lato',sans-serif;font-size:.82rem;font-weight:700;
+    cursor:pointer;text-decoration:none;letter-spacing:.04em;transition:all .18s;}
+  .tldb-btn:hover{background:rgba(42,128,160,.2);border-color:rgba(42,128,160,.6);color:#7ac8e0;}
+  .tldb-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0;}
+  .refresh-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;
+    background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);
+    font-family:'Lato',sans-serif;font-size:.75rem;cursor:pointer;margin-top:8px;transition:all .18s;}
+  .refresh-btn:hover{border-color:var(--gold-dim);color:var(--text);}
+  .refresh-btn.spinning svg{animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .status-msg{grid-column:1/-1;text-align:center;padding:3rem 1rem;color:var(--text-dim);font-size:.88rem;}
+  .spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--gold);
+    border-radius:50%;animation:spin .8s linear infinite;margin:0 auto .8rem;}
+  footer{text-align:center;padding:1.2rem;color:var(--text-dim);font-size:.72rem;
+    border-top:1px solid var(--border);max-width:1100px;margin:0 auto;letter-spacing:.03em;}
+  @media(max-width:480px){.grid{grid-template-columns:repeat(2,1fr);gap:8px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hline"></div>
+  <h1>⚔ Guild Loot — Prix de guilde</h1>
+  <p>Throne &amp; Liberty · Serveur Europe</p>
+  <div class="last-update" id="last-update"></div>
+  <div class="api-status" id="api-status">
+    <span class="dot loading" id="api-dot"></span>
+    <span id="api-msg">Chargement des prix HDV en direct...</span>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="search-wrap">
+    <span class="si">🔍</span>
+    <input type="text" id="search" placeholder="Rechercher un boss ou une arme..." oninput="applyFilters()">
+  </div>
+  <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
+  <button class="filter-btn" onclick="setFilter('Archboss',this)">Archboss</button>
+  <button class="filter-btn" onclick="setFilter('World Boss',this)">World Boss</button>
+  <button class="filter-btn" onclick="setFilter('Guild Boss',this)">Guild Boss</button>
+</div>
+
+<div class="grid" id="grid">
+  <div class="status-msg"><div class="spinner"></div>Chargement...</div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeDetail(event)">
+  <div class="modal">
+    <button class="close-btn" onclick="closeOverlay()">✕</button>
+    <div class="modal-top">
+      <div class="modal-img"><img id="m-img" src="" alt="" onerror="this.style.display='none'"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="modal-boss" id="m-boss"></div>
+        <div class="modal-weapon" id="m-weapon"></div>
+        <div class="live-tag" id="m-live-tag" style="display:none;">
+          <span class="live-dot"></span> Prix live · Europe HDV
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-lbl">Prix HDV</div>
+          <div class="stat-val c-gold" id="m-hdv">—</div>
+          <div class="stat-unit">lucents</div>
+          <div class="stat-sub" id="m-hdv-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Prix guilde</div>
+          <div class="stat-val c-green" id="m-guild">—</div>
+          <div class="stat-unit">lucents</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Économie</div>
+          <div class="stat-val c-amber" id="m-save">—</div>
+          <div class="stat-unit">lucents</div>
+        </div>
+      </div>
+      <div class="disc-box">
+        <span style="font-size:1.3rem;flex-shrink:0;">🏷</span>
+        <div>
+          <div class="disc-strong" id="m-pct"></div>
+          <div class="disc-sub" id="m-rule"></div>
+        </div>
+      </div>
+      <a id="m-tldb-btn" class="tldb-btn" href="#" target="_blank" rel="noopener" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M14 3h7v7l-2-2-7 7-3-3-5 5-2-2 7-7-3-3 8-2z"/></svg>
+        Voir l'historique complet sur tldb.info
+        <svg viewBox="0 0 24 24" style="width:11px;height:11px;opacity:.6;"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+      </a>
+      <button class="refresh-btn" id="refresh-btn" onclick="refreshPrices()">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Rafraîchir les prix HDV
+      </button>
+    </div>
+  </div>
+</div>
+
+<footer>Prix HDV en direct depuis tldb.info · Rabais appliqués par les officiers · Throne &amp; Liberty</footer>
+
+<!-- Librairies pour décoder l'API tldb -->
+<script src="https://cdn.jsdelivr.net/npm/compress-json@2.0.4/dist/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/devalue@4.3.3/dist/devalue.umd.js"></script>
+
+<script>
+// ══════════════════════════════════════════════
+// 🔧 Remplace VOTRE_ID_ICI par l'ID de ton Sheet
+// ══════════════════════════════════════════════
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1tpqqR1GCI2-6e3zjF29iuVFcHKIbpvYG16nxs0VoaO8/gviz/tq?tqx=out:json&sheet=Weapons";
+
+// Région Europe — clé dans l'API tldb
+// Les clés possibles: "euw1","euw2","eu1","Europe","europe" — on cherche en auto
+const REGION_HINT = "eu";
+
+const CDN     = "https://cdn.tldb.info/db/images/ags/v41/128/image/icon/item_128/equip/weapon/";
+const CDN_ARM = "https://cdn.tldb.info/db/images/ags/v41/128/image/icon/item_128/equip/armor/";
+const CDN_ACC = "https://cdn.tldb.info/db/images/ags/v41/128/image/icon/item_128/equip/accessory/";
+
+const KNOWN_IMGS = {
+  "Bellandir's Hivemind Staff":       CDN+"it_p_staff_10001.png",
+  "Bellandir's Wand of Attunement":   CDN+"it_p_wand_10001.png",
+  "Swirling Essence Robes":           CDN_ARM+"it_p_chest_10001.png",
+  "Band of Universal Power":          CDN_ACC+"it_p_ring_10001.png",
+  "Shadow Harvester Boots":           CDN_ARM+"it_p_feet_10001.png",
+  "Arc of Wailing Death":             CDN+"it_p_bow_10002.png",
+  "Tevent's Annihilating Greatsword": CDN+"it_p_sword2h_10002.png",
+  "Adentus's Gargantuan Greatsword":  CDN+"it_p_sword2h_00028.png",
+  "Chernobog's Blade of Beheading":   CDN+"it_p_sword_00041.png",
+  "Talus's Crystalline Staff":        CDN+"it_p_staff_00022.png",
+  "Kowazan's Twilight Daggers":       CDN+"it_p_dagger_00020.png",
+  "Kowazan's Sunflare Crossbows":     CDN+"it_p_crossbow_00025.png",
+  "Cornelius's Animated Edge":        CDN+"it_p_sword2h_00027.png",
+  "Grand Aelon's Thornwood Longbow":  CDN+"it_p_bow_00024.png",
+};
+
+const DEMO_DATA = [
+  { boss:"Bellandir", type:"Archboss", weapon:"Bellandir's Hivemind Staff",       img:"", tldb_id:"staff_aa_t5_boss_001",    tldb_url:"https://tldb.info/db/item/staff_aa_t5_boss_001" },
+  { boss:"Bellandir", type:"Archboss", weapon:"Swirling Essence Robes",           img:"", tldb_id:"chest_aa_t5_boss_001",    tldb_url:"https://tldb.info/db/item/chest_aa_t5_boss_001" },
+  { boss:"Bellandir", type:"Archboss", weapon:"Band of Universal Power",          img:"", tldb_id:"ring_aa_t5_boss_001",     tldb_url:"https://tldb.info/db/item/ring_aa_t5_boss_001" },
+  { boss:"Tevent",    type:"Archboss", weapon:"Arc of Wailing Death",             img:"", tldb_id:"bow_aa_t5_boss_002",      tldb_url:"https://tldb.info/db/item/bow_aa_t5_boss_002" },
+  { boss:"Tevent",    type:"Archboss", weapon:"Tevent's Annihilating Greatsword", img:"", tldb_id:"sword2h_aa_t5_boss_002",  tldb_url:"https://tldb.info/db/item/sword2h_aa_t5_boss_002" },
+  { boss:"Tevent",    type:"Archboss", weapon:"Shadow Harvester Boots",           img:"", tldb_id:"feet_aa_t5_boss_002",     tldb_url:"https://tldb.info/db/item/feet_aa_t5_boss_002" },
+  { boss:"Adentus",       type:"World Boss", weapon:"Adentus's Gargantuan Greatsword",  img:"", tldb_id:"sword2h_aa_t5_boss_001", tldb_url:"https://tldb.info/db/item/sword2h_aa_t5_boss_001" },
+  { boss:"Chernobog",     type:"World Boss", weapon:"Chernobog's Blade of Beheading",   img:"", tldb_id:"sword_aa_t5_boss_001",   tldb_url:"https://tldb.info/db/item/sword_aa_t5_boss_001" },
+  { boss:"Talus",         type:"World Boss", weapon:"Talus's Crystalline Staff",         img:"", tldb_id:"staff_aa_t5_boss_002",   tldb_url:"https://tldb.info/db/item/staff_aa_t5_boss_002" },
+  { boss:"Kowazan",       type:"World Boss", weapon:"Kowazan's Twilight Daggers",        img:"", tldb_id:"dagger_aa_t5_boss_001",  tldb_url:"https://tldb.info/db/item/dagger_aa_t5_boss_001" },
+  { boss:"Lycan Kowazan", type:"World Boss", weapon:"Kowazan's Sunflare Crossbows",      img:"", tldb_id:"crossbow_aa_t5_boss_001",tldb_url:"https://tldb.info/db/item/crossbow_aa_t5_boss_001" },
+  { boss:"Grand Aelon",   type:"World Boss", weapon:"Grand Aelon's Thornwood Longbow",   img:"", tldb_id:"bow_aa_t5_boss_001",    tldb_url:"https://tldb.info/db/item/bow_aa_t5_boss_001" },
+  { boss:"Cornelius",     type:"World Boss", weapon:"Cornelius's Animated Edge",         img:"", tldb_id:"sword2h_aa_t5_boss_003",tldb_url:"https://tldb.info/db/item/sword2h_aa_t5_boss_003" },
+  { boss:"Minezerok", type:"Guild Boss", weapon:"Minezerok's Great Axe",     img:"", tldb_id:"", tldb_url:"" },
+  { boss:"Junobote",  type:"Guild Boss", weapon:"Junobote's War Hammer",     img:"", tldb_id:"", tldb_url:"" },
+  { boss:"Nirma",     type:"Guild Boss", weapon:"Nirma's Spectral Dagger",   img:"", tldb_id:"", tldb_url:"" },
+  { boss:"Malakar",   type:"Guild Boss", weapon:"Malakar's Spine Bow",       img:"", tldb_id:"", tldb_url:"" },
+];
+
+const DISCOUNT_RULES = [
+  { min:50000, pct:45 },
+  { min:30000, pct:35 },
+  { min:15000, pct:25 },
+  { min:5000,  pct:15 },
+  { min:0,     pct:10 },
+];
+
+function getDiscount(price){ for(const r of DISCOUNT_RULES){ if(price>=r.min) return r.pct; } return 10; }
+function getRuleLabel(price){ for(const r of DISCOUNT_RULES){ if(price>=r.min) return `Palier : armes ≥ ${fmt(r.min)} ✦`; } return ''; }
+function guildPrice(price){ return Math.round(price*(1-getDiscount(price)/100)); }
+function fmt(n){ return Math.round(n).toLocaleString('fr-FR'); }
+function getImg(weapon){ return KNOWN_IMGS[weapon]||''; }
+
+const typeClass = { "Archboss":"type-archboss","World Boss":"type-worldboss","Guild Boss":"type-guildboss" };
+const typeFb    = { "Archboss":"💀","World Boss":"🌍","Guild Boss":"⚔" };
+
+let allWeapons   = [];
+let liveprices   = {};   // { tldb_id: minPrice }
+let pricesLoaded = false;
+let currentFilter = 'all';
+let selectedId    = null;
+
+// ─── API TLDB PRIX LIVE ───────────────────────────────────────────────────────
+async function fetchLivePrices() {
+  setApiStatus('loading', 'Chargement des prix HDV Europe...');
+  try {
+    const res  = await fetch('https://tldb.info/api/ah/prices');
+    const data = await res.json();
+    const { list, regions } = data;
+
+    // Trouver la clé Europe
+    let euKey = null;
+    const keys = Object.keys(list);
+
+    // Cherche dans regions d'abord
+    if (regions) {
+      for (const [k, v] of Object.entries(regions)) {
+        const label = (v.label||v.name||'').toLowerCase();
+        if (label.includes('europe') || label.includes('eu')) { euKey = k; break; }
+      }
+    }
+    // Fallback : cherche dans les noms de clés
+    if (!euKey) {
+      euKey = keys.find(k => k.toLowerCase().includes('eu'))
+           || keys.find(k => k.toLowerCase().includes('europe'))
+           || keys[0];
+    }
+
+    if (!euKey || !list[euKey]) throw new Error('Région Europe introuvable');
+
+    // Décompresser les données
+    const raw = list[euKey];
+    let items;
+    if (typeof raw === 'string') {
+      const parsed = JSON.parse(raw);
+      items = compressJson.decompress(parsed);
+    } else if (Array.isArray(raw)) {
+      items = compressJson.decompress(raw);
+    } else {
+      items = raw;
+    }
+
+    // items est un tableau/objet : { itemId: { min, avg, qty } } ou tableau [{id, min, ...}]
+    liveprices = {};
+    if (Array.isArray(items)) {
+      items.forEach(item => {
+        const id  = item.id || item.itemId || item.item_id || item[0];
+        const min = item.min || item.minPrice || item.price || item[1];
+        if (id && min) liveprices[id] = min;
+      });
+    } else if (typeof items === 'object') {
+      Object.entries(items).forEach(([id, val]) => {
+        const min = typeof val === 'object' ? (val.min||val.minPrice||val.price) : val;
+        if (min) liveprices[id] = min;
+      });
+    }
+
+    pricesLoaded = true;
+    const count = Object.keys(liveprices).length;
+    setApiStatus('ok', `Prix live Europe · ${count.toLocaleString('fr-FR')} items · Mis à jour ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`);
+    applyFilters();
+    if (selectedId !== null) openDetail(selectedId);
+  } catch(e) {
+    console.warn('tldb API error:', e);
+    setApiStatus('err', 'Prix live indisponibles — prix du Sheet utilisés');
+    applyFilters();
+  }
+}
+
+function setApiStatus(state, msg) {
+  const dot = document.getElementById('api-dot');
+  dot.className = 'dot ' + state;
+  document.getElementById('api-msg').textContent = msg;
+}
+
+function getLivePrice(w) {
+  if (!pricesLoaded || !w.tldb_id) return null;
+  return liveprices[w.tldb_id] || null;
+}
+
+function getEffectivePrice(w) {
+  const live = getLivePrice(w);
+  return live !== null ? live : (w.price || 0);
+}
+
+// ─── CARTES ──────────────────────────────────────────────────────────────────
+function buildCard(w, idx) {
+  const effectivePrice = getEffectivePrice(w);
+  const disc = getDiscount(effectivePrice);
+  const tc   = typeClass[w.type] || 'type-worldboss';
+  const img  = w.img || getImg(w.weapon);
+  const imgHtml = img
+    ? `<img src="${img}" alt="${w.weapon}" onerror="this.parentNode.innerHTML='<span class=img-fb>${typeFb[w.type]||'⚔'}</span>'">`
+    : `<span class="img-fb">${typeFb[w.type]||'⚔'}</span>`;
+
+  const isLive = getLivePrice(w) !== null;
+  const priceDisplay = effectivePrice > 0
+    ? `<span class="price-value price-hdv">${fmt(effectivePrice)} ✦</span>`
+    : `<span class="loading-price">chargement...</span>`;
+
+  const liveBadge = isLive
+    ? `<div class="live-badge"><span class="live-dot"></span>live</div>`
+    : (w.tldb_id && !pricesLoaded ? `<div class="live-badge" style="opacity:.4">live en attente</div>` : '');
+
+  return `<div class="card ${tc}${selectedId===idx?' active':''}" onclick="openDetail(${idx})">
+    <div class="type-bar"></div>
+    <div class="card-img-wrap">${imgHtml}</div>
+    <div class="card-body">
+      <div class="boss-name">${w.boss}</div>
+      <div class="weapon-name">${w.weapon}</div>
+      <span class="type-badge">${w.type}</span>
+      ${liveBadge}
+      <div class="price-section">
+        <div class="price-row">
+          <span class="price-label">HDV</span>
+          ${priceDisplay}
+        </div>
+        <div class="price-row">
+          <span class="price-label">Guilde</span>
+          <span class="price-value price-guild">${effectivePrice > 0 ? fmt(guildPrice(effectivePrice))+' ✦' : '—'}</span>
+        </div>
+        <span class="disc-pill">-${disc}% membres guilde</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function applyFilters() {
+  const q    = document.getElementById('search').value.toLowerCase();
+  const grid = document.getElementById('grid');
+  const filtered = allWeapons
+    .map((w,i)=>({w,i}))
+    .filter(({w})=>{
+      const mq = !q || w.boss.toLowerCase().includes(q) || w.weapon.toLowerCase().includes(q);
+      const mt = currentFilter==='all' || w.type===currentFilter;
+      return mq && mt;
+    });
+
+  grid.innerHTML = filtered.length===0
+    ? `<div class="status-msg">Aucune arme trouvée.</div>`
+    : filtered.map(({w,i})=>buildCard(w,i)).join('');
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openDetail(idx) {
+  selectedId = idx;
+  const w    = allWeapons[idx];
+  const effectivePrice = getEffectivePrice(w);
+  const isLive = getLivePrice(w) !== null;
+  const disc = getDiscount(effectivePrice);
+  const guild = guildPrice(effectivePrice);
+  const img  = w.img || getImg(w.weapon);
+
+  document.getElementById('m-boss').textContent   = w.boss;
+  document.getElementById('m-weapon').textContent = w.weapon;
+  document.getElementById('m-hdv').textContent    = effectivePrice > 0 ? fmt(effectivePrice) : '—';
+  document.getElementById('m-guild').textContent  = effectivePrice > 0 ? fmt(guild) : '—';
+  document.getElementById('m-save').textContent   = effectivePrice > 0 ? fmt(effectivePrice-guild) : '—';
+  document.getElementById('m-pct').textContent    = `-${disc}% de rabais guilde`;
+  document.getElementById('m-rule').textContent   = getRuleLabel(effectivePrice);
+
+  const hdvSub = document.getElementById('m-hdv-sub');
+  hdvSub.textContent = isLive ? '● Prix live Europe' : (w.tldb_id ? 'En attente du live...' : 'Prix manuel');
+  hdvSub.style.color = isLive ? 'var(--green)' : 'var(--text-dim)';
+
+  document.getElementById('m-live-tag').style.display = isLive ? 'inline-flex' : 'none';
+
+  const mImg = document.getElementById('m-img');
+  if(img){ mImg.src=img; mImg.style.display=''; } else mImg.style.display='none';
+
+  const btn = document.getElementById('m-tldb-btn');
+  if(w.tldb_url && w.tldb_url.trim()){ btn.href=w.tldb_url.trim(); btn.style.display='flex'; }
+  else btn.style.display='none';
+
+  document.getElementById('overlay').classList.add('open');
+  applyFilters();
+}
+
+function closeOverlay(){ selectedId=null; document.getElementById('overlay').classList.remove('open'); applyFilters(); }
+function closeDetail(e){ if(e.target===document.getElementById('overlay')) closeOverlay(); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeOverlay(); });
+
+async function refreshPrices() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  await fetchLivePrices();
+  btn.classList.remove('spinning');
+}
+
+// ─── CHARGEMENT SHEET ────────────────────────────────────────────────────────
+async function loadSheet() {
+  if(SHEET_URL.includes('VOTRE_ID_ICI')){
+    allWeapons = DEMO_DATA;
+    document.getElementById('last-update').textContent = '⚠ Mode démonstration — Google Sheet non configuré';
+    applyFilters();
+    return;
+  }
+  try {
+    const res  = await fetch(SHEET_URL);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
+    const rows = json.table.rows;
+    allWeapons = rows.map(r=>({
+      boss:     r.c[0]?.v||'',
+      type:     r.c[1]?.v||'World Boss',
+      weapon:   r.c[2]?.v||'',
+      price:    parseInt(r.c[3]?.v)||0,
+      img:      r.c[4]?.v||'',
+      tldb_url: r.c[5]?.v||'',
+      tldb_id:  r.c[6]?.v||'',  // ← 7e colonne : ID tldb (ex: staff_aa_t5_boss_001)
+    })).filter(w=>w.boss&&w.weapon);
+    const now = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('last-update').textContent = `Sheet synchronisé le ${now}`;
+  } catch(e) {
+    allWeapons = DEMO_DATA;
+    document.getElementById('last-update').textContent = '⚠ Erreur Sheet — Mode démonstration';
+  }
+  applyFilters();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+async function init() {
+  await loadSheet();
+  await fetchLivePrices();
+  // Rafraîchir les prix toutes les 5 minutes
+  setInterval(fetchLivePrices, 5 * 60 * 1000);
+}
+
+// Attendre que les libs CDN soient chargées
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
